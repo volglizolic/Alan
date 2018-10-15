@@ -9,6 +9,8 @@
 
 int linenumber = 1;
 
+int commentLevel = 0;
+
 //for the string and/or chars to work properly we must translate hex codes and escape caracters
 //o logos pou den diabazw mprosta einai gia na min skaei to programma ama o allos moy dwsei "sad\x"
 char* stripstring (char *string){
@@ -79,6 +81,9 @@ W[ \t\r]
 HEX[0-9A-Fa-f]
 Anotation[(){}=!+\-*/%<>|&\[\]:;,]
 
+%x comment
+%x oneLineComment
+
 %%
 
 "int" 		{return T_int;}
@@ -98,19 +103,26 @@ Anotation[(){}=!+\-*/%<>|&\[\]:;,]
 "!="		{return T_notEqual;}
 {Anotation}	{return yytext[0];}
 
-{D}+ 		{yylval.n = atoi(yytext); return T_const;}
-{L}({L}|{D})*	{yylval.s = strdup(yytext); return T_id;}
+{D}+ 		{ yylval.n = atoi(yytext); return T_const; }
+{L}({L}|{D})*	{ yylval.s = strdup(yytext); return T_id; }
 
  
-"\'"((\\([ntr0\\\'\"]))|("\\x"({HEX}{HEX}))|([^"'\\]))"\'" { yylval.c = stripstring(yytext)[0]; return T_char;}
-"\""((\\([ntr0\\\'\"]))|("\\x"({HEX}{HEX}))|([^"'\\]))*"\"" {yylval.s = stripstring(yytext); return T_string;}
+"\'"((\\([ntr0\\\'\"]))|("\\x"({HEX}{HEX}))|([^"'\\]))"\'" { yylval.c = stripstring(yytext)[0]; return T_char; }
+"\""((\\([ntr0\\\'\"]))|("\\x"({HEX}{HEX}))|([^"'\\]))*"\"" { yylval.s = stripstring(yytext); return T_string; }
 
-"--".*		{/*nothing*/ }
-"(*"([^*]|(\*+[^*)]))*\*+")" {/*nothing*/ int length = strlen(yytext); for(int i=0; i < length; i++) if (yytext[i] == '\n')linenumber++;}
+"--"		{ BEGIN(oneLineComment); }
+<oneLineComment>\n { linenumber++; BEGIN(INITIAL); }
+<oneLineComment>. {/*nothing*/}
 
-\n		{linenumber++;}
+"(*"        { commentLevel++; BEGIN(comment); }
+<comment>"(*" { commentLevel++; }
+
+<comment>"*)" { commentLevel--; if(commentLevel==0) BEGIN(INITIAL); }
+<INITIAL,comment>\n { linenumber++; }
+<comment>. {/*nothing*/}
+
 {W}+		{/*nothing*/}
-.		{ printf( "Unrecognized character: %s\n", yytext );}
+.		{ printf( "Unrecognized character: %s\n", yytext); }
 
 %%
 
