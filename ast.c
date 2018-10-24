@@ -252,6 +252,7 @@ int ast_run (ast t){
 		printf("%c\n",c[0]);
 		return c[0];
 	case PREFIX:
+		ast_run(t1);
 		printf("prefix = %i\n", n);
 		return 0;
 	case PLUS:

@@ -31,9 +31,10 @@ char * stringcat(char *c1, char *c2){
 	if(size2 == 0) return c1;
 	char *result = malloc(sizeof(char)*(size+1)); //+1 for the space bellow
 	strcat(result,c1);
-	strcat(result," ");
-	strcat(result,c2);
-	return result;
+	if(strcmp(c1,"_rf"))
+	    strcat(result," ");
+    strcat(result,c2);
+    return result;
 }
 
 void initScope(){
@@ -52,11 +53,25 @@ void deleteScope(){
 	scope--;
 }
 
-void specifyFuncSign(char *c, char *sign){
+void specifyFuncSign(ast t, char *c, char *sign){
+    char *tempSign = malloc(sizeof(char) * (strlen(sign) + 1));
+    int i = -1;
+    int index = -1;
+    do{
+        i++; index++;
+        if(sign[i]=='_') i = i+3;
+        tempSign[index] = sign[i];
+    }while(sign[i]!='\0');
+	//add signature to ast tree
+	t->signature = tempSign;
+    t->trueSignature = malloc(sizeof(char) * (strlen(sign)+1));
+    strcpy(t->trueSignature,sign);
+
+    //add signature to scope entry
 	scopeEntry *temp = scopeHead;
 	while (temp!=NULL && strcmp(temp->id, c)!=0) temp = temp->prevEntry;
 	printf("Assigning to function %s signature %s\n", c, sign);
-	temp->funcSign = sign;
+	temp->funcSign = tempSign;
 }
 
 scopeEntry *findFuncScopeEntry(char *c){
@@ -90,24 +105,30 @@ char *getVarTypeByName(char *c){
 
 char *getLastFuncDefinedReturnType(){
 	scopeEntry *temp = scopeHead;
-	while (temp!=NULL && temp->type != FUNCTION) temp = temp->prevEntry;
+	while (temp!=NULL && temp->scType != FUNCTION) temp = temp->prevEntry;
 	if(temp == NULL) return NULL;	
 	return temp->funcSign;
 }
 
-void setSize(char *c, int size){
+void setSize(ast t, char *c, int size){
+    t->size = size;
 	scopeEntry *temp = scopeHead;
 	while (temp!=NULL && strcmp(temp->id, c)!=0) temp = temp->prevEntry;
 	if(temp == NULL) valid_printf("something went terribly wrong in setSize\n");
 	temp->size = size;
 }
+
 char *findVarTypeByID(char *c){
 	scopeEntry *temp = scopeHead;
 	while (temp!=NULL && strcmp(temp->id, c)!=0) temp = temp->prevEntry;
 	if(temp == NULL) return NULL; else return temp->type;
 }
 
-void addToScope(char *c, scopeType scType, char *type){
+void addToScope(ast t, char *c, scopeType scType, char *type){
+    //add type to ast
+    t->type = malloc(sizeof(char) * (strlen(type)+1));
+    strcpy(t->type, type);
+    //add var/param/rfparam/etc to scope entry
 	scopeEntry *temp = malloc(sizeof(scopeEntry));
 	temp->prevEntry = scopeHead;
 	scopeHead = temp;
@@ -126,16 +147,19 @@ char *run_type(ast t){
 	char *type1, *type2, *funcSign;
 	scopeEntry *funcScopeEntry;
 
+	//printf("%i\n",t->k);
+
 	switch (t->k) {
 	case PROC:
 		//add id to scope with type from t2
 		type2 = run_type(t2); //return type
 		if(existsInThisScope(c, FUNCTION)) {valid_printf("line:%i\t function %s is already defined.\n", t->lineNumber, c); return "void";}
-
-		addToScope(c, FUNCTION, type2);
+		addToScope(t, c, FUNCTION, type2);
 		newScope();
 		funcSign = run_type(t1); //param list
-		specifyFuncSign(c, funcSign);
+		specifyFuncSign(t, c, funcSign);
+		if(strcmp(type2,"int")==0) size = 4 ; else size = 1;
+        setSize(t, c, size);
 		run_type(t3); //func and var def
 		run_type(t4); //body
 		deleteScope();
@@ -150,12 +174,12 @@ char *run_type(ast t){
 		return stringcat(type1,type2);
 	case PARAM:
 		type1 = run_type(t1);
-		addToScope(c, PARAMETER, type1);
+		addToScope(t, c, PARAMETER, type1);
 		return type1;
 	case RFPARAM:
 		type1 = run_type(t1);
-		addToScope(c, RFPARAMETER, type1);
-		return type1;
+		addToScope(t, c, RFPARAMETER, type1);
+		return stringcat("_rf", type1);
 	case SIGNLETYPE:
 		return run_type(t1);
 	case ARRAYTYPE:
@@ -181,8 +205,8 @@ char *run_type(ast t){
 		if(existsInThisScope(c, VARIABLE)) {valid_printf("line:%i\t variable %s is already defined.\n", t->lineNumber, c); return "void";}
 		type1 = run_type(t1);
 		if(strcmp(type1,"int")==0) size = 4 ; else size = 1;
-		addToScope(c, VARIABLE, type1);
-		setSize(c, size);
+		addToScope(t, c, VARIABLE, type1);
+		setSize(t, c, size);
 		return type1;
 	case VARARRAY:
 		if(existsInThisScope(c, VARIABLE)) {valid_printf("line:%i\t variable %s is already defined.\n", t->lineNumber, c); return "void";}
@@ -193,8 +217,8 @@ char *run_type(ast t){
 			type1 = "intarray";
 		else
 			type1 = "bytearray";
-		addToScope(c, VARIABLE, type1);
-		setSize(c, size);
+		addToScope(t, c, VARIABLE, type1);
+		setSize(t, c, size);
 		return type1;
 	case SET:
 		type1 = run_type(t1);
@@ -221,13 +245,22 @@ char *run_type(ast t){
 	case RETURN:
 		type1 = run_type(t1);
 		funcSign = getLastFuncDefinedReturnType();
+		if(funcSign == NULL){
+			valid_printf("line:%i\treturn found without a function declaration.\n", t->lineNumber, funcSign, type1);
+			t->type = "void";
+			t->size = 0;
+			return "void";
+		}
 		if(strcmp(funcSign,type1)!=0) valid_printf("line:%i\texpected to return type %s but got %s instead.\n", t->lineNumber, funcSign, type1);
+		t->type = type1;
+		if(strcmp(type1,"int")==0) t->size = 4; else if(strcmp(type1,"byte")==0) t->size = 1; else t->size = 0;
 		return type1;
 	case FUNCCALL:
 		type1 = run_type(t1);
-		if(!existsInAnyScope(c)){ valid_printf("line:%i\tfunction %s is called but not declared\n",t->lineNumber, c);}
+		t->type = malloc(sizeof(char) * (strlen(type1)+1));
+		t->type = type1;
+		if(!existsInAnyScope(c)){ valid_printf("line:%i\tfunction %s is called but not declared\n",t->lineNumber, c); return "void";}
 		funcScopeEntry = findFuncScopeEntry(c);
-		if(funcScopeEntry==NULL)return "void";
 		if(strcmp(type1, funcScopeEntry->funcSign)!=0) valid_printf("line:%i\tparameter type missmatch in function %s call (Func sign: %s but is given: %s)\n", t->lineNumber, c, funcScopeEntry->funcSign, type1);
 		return funcScopeEntry->type;
 	case EXPRLIST:
@@ -239,8 +272,7 @@ char *run_type(ast t){
 	case CHAR:
 		return "byte";
 	case PREFIX:
-		type1 = run_type(t1);
-		return type1;
+		return run_type(t1);
 	case PLUS:
 		type1 = run_type(t1);
 		type2 = run_type(t2);
@@ -323,14 +355,14 @@ char *run_type(ast t){
 	case OR:
 		type1 = run_type(t1);
 		type2 = run_type(t2);
-		if(!strcmp(type1,"boolean")!=0) valid_printf("line:%i\texpected boolean but got %s instead.\n", t->lineNumber, type1);
-		if(!strcmp(type2,"boolean")!=0) valid_printf("line:%i\texpected boolean but got %s instead.\n", t->lineNumber, type2);
+		if(strcmp(type1,"boolean")!=0) valid_printf("line:%i\texpected boolean but got %s instead.\n", t->lineNumber, type1);
+		if(strcmp(type2,"boolean")!=0) valid_printf("line:%i\texpected boolean but got %s instead.\n", t->lineNumber, type2);
 		return "boolean";	
 	case AND:
 		type1 = run_type(t1);
 		type2 = run_type(t2);
-		if(!strcmp(type1,"boolean")!=0) valid_printf("line:%i\texpected boolean but got %s instead.\n", t->lineNumber, type1);
-		if(!strcmp(type2,"boolean")!=0) valid_printf("line:%i\texpected boolean but got %s instead.\n", t->lineNumber, type2);
+		if(strcmp(type1,"boolean")!=0) valid_printf("line:%i\texpected boolean but got %s instead.\n", t->lineNumber, type1);
+		if(strcmp(type2,"boolean")!=0) valid_printf("line:%i\texpected boolean but got %s instead.\n", t->lineNumber, type2);
 		return "boolean";
 	};
 	return NULL;

@@ -2,6 +2,7 @@
 #define __SEMANTICS_H__
 
 #include <stdbool.h>
+#include "ast.h"
 
 bool correct;
 
@@ -27,7 +28,7 @@ void newScope();
 
 void deleteScope();
 
-void specifyFuncSign(char *c, char *sign);
+void specifyFuncSign(ast t, char *c, char *sign);
 
 scopeEntry *findFuncScopeEntry(char *c);
 
@@ -37,8 +38,10 @@ char *getVarTypeByName(char *c);
 
 char *getLastFuncDefinedSign();
 
-void setSize(char *c, int size);
+void setSize(ast t, char *c, int size);
 
-void addToScope(char *c, scopeType scType, char *type);
+void addToScope(ast t, char *c, scopeType scType, char *type);
+
+char * stringcat(char *c1, char *c2);
 
 #endif

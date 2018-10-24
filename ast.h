@@ -21,6 +21,10 @@ typedef struct node {
 	int n;
 	int lineNumber;
   	struct node *t1, *t2, *t3, *t4; /*t for tree*/
+  	char *type;
+  	char *signature;
+  	int size;
+  	char *trueSignature;
 } *ast;
 
 

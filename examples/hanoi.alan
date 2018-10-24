@@ -1,13 +1,14 @@
 solve () : proc
     hanoi (rings : int, source : reference byte [],
             target : reference byte [], auxiliary : reference byte []) : proc
-        move (source : reference byte [], target : reference byte[]) : proc
+        move (source : reference byte [], target : reference byte[]) : int
         {
             writeString("Moving from ");
             writeString(source);
             writeString(" to ");
             writeString(target);
             writeString(".\n");
+	    return 5;
         }
 
     { -- hanoi

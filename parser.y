@@ -5,7 +5,7 @@
 #include "semantics.h"
 #include "parser.h"
 #include "debugger.h"
-
+#include "threeAddressCode.h"
 
 void yyerror (const char *msg);
 extern bool correct;
@@ -117,8 +117,8 @@ stmt:
 	|"if" '(' cond ')' stmt  { $$ = ast_if($3, $5); }
 	|"if" '(' cond ')' stmt "else" stmt { $$ = ast_if_else($3, $5, $7); }
 	|"while" '(' cond ')' stmt { $$ = ast_while($3, $5); }
-	|"return" expr ';' { $$ = ast_return($2,1); }
-	|"return" ';' { $$ = ast_return(NULL,0); };
+	|"return" expr ';' { $$ = ast_return($2, 1); }
+	|"return" ';' { $$ = ast_return(NULL, 0); };
 
 compound_stmt:
 	'{' stmt_list '}' { $$ = $2; };
@@ -151,8 +151,8 @@ l_value:
 	|T_string { $$ = ast_string($1); };
 
 cond:
-	"True" { $$ = ast_bool(1); }
-	|"False" { $$ = ast_bool(0); }
+	T_true { $$ = ast_bool(1); }
+	|T_false { $$ = ast_bool(0); }
 	|'(' cond ')' { $$ = $2; }
 	|'!' cond %prec UNOT { $$ = ast_not($2); }
 	|expr "==" expr { $$ = ast_comp(EQUAL, $1, $3); }
@@ -181,6 +181,12 @@ int main() {
 	//ast_run(t);
 	initScope();
 	run_type(t);
+
+	printf("\nType checking complete.\n\n");
+
+	initThreeAddressCode();
+	createThreeAddressCode(t);
+
 	if (correct)
  		printf("Compilation was successful.\n");
 	else

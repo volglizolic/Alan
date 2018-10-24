@@ -28,7 +28,7 @@ main () : proc
         }
     } -- bsort
 
-    writeArray (msg : reference byte [], n : int, x : reference int[] ) : proc
+    writeArray (msg : reference byte [], n : int, x : reference int [] ) : proc
         i : int;
     {
         writeString(msg);

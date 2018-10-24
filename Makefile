@@ -21,8 +21,10 @@ ast.o: ast.c
 
 semantics.o: semantics.c
 
-alan: lexer.o parser.o ast.o semantics.o debugger.o
-	$(CC) $(CFLAGS) -o alan $^ -lfl
+threeAddressCode.o: threeAddressCode.c
+
+alan: lexer.o parser.o ast.o semantics.o debugger.o threeAddressCode.o
+	$(CC) $(CFLAGS) -o alan $^ -lfl -lm -ggdb
 
 clean:
 	$(RM) lexer.c parser.c parser.h parser.output *.o *~
